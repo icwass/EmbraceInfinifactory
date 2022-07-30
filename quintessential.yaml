@@ -1,0 +1,8 @@
+Name: EmbraceInfinifactory
+Version: 0.0.1
+Title: Embrace Infinifactory
+Desc: Adds gameplay elements heavily inspired by the Zachtronics game "Infinifactory".
+DLL: "EmbraceInfinifactory/bin/Debug/net452/EmbraceInfinifactory.dll"
+Dependencies:
+- Name: Quintessential
+  Version: 0.3.0
