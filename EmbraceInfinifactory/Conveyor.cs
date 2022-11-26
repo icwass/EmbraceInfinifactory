@@ -11,100 +11,87 @@ using System.Reflection;
 namespace EmbraceInfinifactory;
 
 using PartType = class_139;
+using Permissions = enum_149;
+using PartTypes = class_191;
+using Texture = class_256;
 
 public static class ConveyorManager
 {
-	private static IDetour hook_Sim_method_1828;
 	private static IDetour hook_Sim_method_1832;
-	private static IDetour hook_Sim_method_1831;
+	public static PartType Conveyor;
 
-	public static Dictionary<Part, PartSimState> tempFakeGrippers = new(); // move to FakeGripper.cs eventually
-		
-	public static void removeFakeGrippers(SolutionEditorBase seb_self)
-	{
-		var solution = seb_self.method_502();
-		var partList = solution.field_3919;
-		var partsToRemove = new List<Part>();
-		foreach (Part part in partList.Where(x => x.method_1159() == FakeGripper.partType))
-		{
-			partsToRemove.Add(part);
-		}
-		foreach (Part fake in partsToRemove)
-		{
-			partList.Remove(fake);
-		}
-	}
-
-	public static void removeFakeGrippers(Sim sim_self)
-	{
-		var sim_dyn = new DynamicData(sim_self);
-		var SEB = sim_dyn.Get<SolutionEditorBase>("field_3818");
-		var solution = SEB.method_502();
-		var partList = solution.field_3919;
-		var partSimStates = sim_dyn.Get<Dictionary<Part, PartSimState>>("field_3821");
-		var class401s = sim_dyn.Get<Dictionary<Part, Sim.class_401>>("field_3822");
-		var droppedMolecules = sim_dyn.Get<List<Molecule>>("field_3828");
-		foreach (Part fake in partList.Where(x => x.method_1159() == FakeGripper.partType))
-		{
-			if (partSimStates.ContainsKey(fake))
-			{
-				var maybeMol = partSimStates[fake].field_2729;
-				if (maybeMol.method_1085())
-				{
-					Molecule mol = partSimStates[fake].field_2729.method_1087();
-					droppedMolecules.Add(mol); // allows conduits to yoink the "dropped" molecule
-				}
-				partSimStates.Remove(fake);
-			}
-			if (class401s.ContainsKey(fake))
-			{
-				class401s.Remove(fake);
-			}
-		}
-		removeFakeGrippers(SEB);
-		sim_dyn.Set("field_3821", partSimStates);
-		sim_dyn.Set("field_3822", class401s);
-		sim_dyn.Set("field_3828", droppedMolecules);
-	}
-
-
+	private static Texture HexBase;
+	private static Texture[] ConveyorBelts;
+	private static class_126 ConveyorLighting;
 
 	public static void LoadPuzzleContent()
 	{
-		//
+		HexBase = class_235.method_615("embraceInfinifactory/textures/parts/base");
+		ConveyorLighting = new class_126(class_235.method_615("embraceInfinifactory/textures/parts/conveyor/rail.lighting/left"),
+											class_235.method_615("embraceInfinifactory/textures/parts/conveyor/rail.lighting/right"),
+											class_235.method_615("embraceInfinifactory/textures/parts/conveyor/rail.lighting/bottom"),
+											class_235.method_615("embraceInfinifactory/textures/parts/conveyor/rail.lighting/top"));
+		ConveyorBelts = new Texture[80];
+		for (int i = 0; i < 80; i++)
+		{
+			string num = (i < 10 ? "0" : "") + i.ToString();
+			ConveyorBelts[i] = class_235.method_615("embraceInfinifactory/textures/parts/conveyor/belt.array/belt_" + num);
+		}
+
+
+		Conveyor = new PartType()
+		{
+			/*ID*/field_1528 = "embrace-infinifactory-conveyor",
+			/*Name*/field_1529 = class_134.method_253("Conveyor", string.Empty),
+			/*Desc*/field_1530 = class_134.method_253("Passively moves an atom, or group of atoms, in the indicated direction", string.Empty),
+			/*Cost*/field_1531 = 2,
+			/*Force-rotatable*/field_1536 = true,//default=false, but true for arms and the berlo, which are 1-hex big but can be rotated individually
+			/*Is a Glyph?*/field_1539 = true,//default=false
+			/*Hex Footprint*/field_1540 = new HexIndex[1] { new HexIndex(0, 0) },//default=emptyList
+			/*Icon*/field_1547 = class_235.method_615("embraceInfinifactory/textures/parts/icons/conveyor"),
+			/*Hover Icon*/field_1548 = class_235.method_615("embraceInfinifactory/textures/parts/icons/conveyor_hover"),
+			/*Glow (Shadow)*/field_1549 = class_238.field_1989.field_97.field_382,//1-hex
+			/*Stroke (Outline)*/field_1550 = class_238.field_1989.field_97.field_383,//1-hex
+			/*Permissions*/field_1551 = Permissions.Track,
+		};
+
+		QApi.AddPartType(Conveyor, (part, pos, editor, renderer) => {
+
+			var vec2 = new Vector2(42f, 49f);
+			renderer.method_526(HexBase, new HexIndex(0,0), new Vector2(-1f, -1f), vec2, 0);
+
+			var vector2_3 = (ConveyorLighting.method_235().ToVector2() / 2).Rounded();
+			renderer.method_527(ConveyorLighting, new HexIndex(0, 0), new Vector2(0.0f, 0.0f), vector2_3, (float) 0.0);
+
+			int index = 0;
+			if (editor.method_503() != enum_128.Stopped)
+			{
+				index = (int)((double)new struct_27(Time.Now().Ticks).method_603() * 60.0) % ConveyorBelts.Length;
+			}
+			renderer.method_521(ConveyorBelts[index], vec2 + new Vector2(-1f, -33f));
+		});
+
+		QApi.AddPartTypeToPanel(Conveyor, PartTypes.field_1770); //inserts part type after Track in the parts tray
+
+
+
+
+
 
 
 		//------------------------- HOOKING -------------------------//
-
-		hook_Sim_method_1828 = new Hook(
-			typeof(Sim).GetMethod("method_1828", BindingFlags.Instance | BindingFlags.NonPublic),
-			typeof(ConveyorManager).GetMethod("OnSimMethod1828", BindingFlags.Static | BindingFlags.NonPublic)
-		);
 		hook_Sim_method_1832 = new Hook(
 			typeof(Sim).GetMethod("method_1832", BindingFlags.Instance | BindingFlags.NonPublic),
 			typeof(ConveyorManager).GetMethod("OnSimMethod1832", BindingFlags.Static | BindingFlags.NonPublic)
-		);
-		hook_Sim_method_1831 = new Hook(
-			typeof(Sim).GetMethod("method_1831", BindingFlags.Instance | BindingFlags.NonPublic),
-			typeof(ConveyorManager).GetMethod("OnSimMethod1831", BindingFlags.Static | BindingFlags.NonPublic)
 		);
 	}
 
 	public static void Unload()
 	{
-		hook_Sim_method_1828.Dispose();
 		hook_Sim_method_1832.Dispose();
-		hook_Sim_method_1831.Dispose();
 	}
 
-	private delegate void orig_Sim_method_1828(Sim self);
 	private delegate void orig_Sim_method_1832(Sim self, bool param_5369);
-	private delegate void orig_Sim_method_1831(Sim self);
-	private static void OnSimMethod1828(orig_Sim_method_1828 orig, Sim sim_self)
-	{
-		ConveyorManager.removeFakeGrippers(sim_self);
-		orig(sim_self);
-	}
 	private static void OnSimMethod1832(orig_Sim_method_1832 orig, Sim sim_self, bool param_5369)
 	{
 		orig(sim_self, param_5369);
@@ -131,7 +118,7 @@ public static class ConveyorManager
 
 			//compute net forces
 			var forceDictionary = new Dictionary<Molecule, ConveyorForce>();
-			foreach (var part in partList.Where(x => x.method_1159() == MainClass.Conveyor))//for each conveyor
+			foreach (var part in partList.Where(x => x.method_1159() == Conveyor))//for each conveyor
 			{
 				Type simType = typeof(Sim);
 				MethodInfo Method_1833 = simType.GetMethod("method_1833", BindingFlags.NonPublic | BindingFlags.Instance);
@@ -171,10 +158,6 @@ public static class ConveyorManager
 				}
 			}
 		}
-	}
-	private static void OnSimMethod1831(orig_Sim_method_1831 orig, Sim sim_self)
-	{
-		orig(sim_self);
 	}
 }
 

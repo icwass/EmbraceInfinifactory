@@ -20,13 +20,10 @@ using Texture = class_256;
 
 public class MainClass : QuintessentialMod
 {
-	public static PartType Conveyor;
 	public static PartType Eviscerator, Laser;
 	public static PartType Welder;
 
 	public static Texture HexBase, WelderFaceplate;
-	public static class_126 ConveyorLighting;
-	public static Texture[] ConveyorBelts;
 	public static Texture[] EvisceratorTextures;
 	public static Texture[] WelderFlare, WelderBeamX, WelderBeamY, WelderBeamZ, WelderWeld, WelderGlyphWeld;
 
@@ -73,16 +70,6 @@ public class MainClass : QuintessentialMod
 
 		HexBase = class_235.method_615("embraceInfinifactory/textures/parts/base");
 		WelderFaceplate = class_235.method_615("embraceInfinifactory/textures/parts/welder/faceplate");
-		ConveyorLighting = new class_126(	class_235.method_615("embraceInfinifactory/textures/parts/conveyor/rail.lighting/left"),
-											class_235.method_615("embraceInfinifactory/textures/parts/conveyor/rail.lighting/right"),
-											class_235.method_615("embraceInfinifactory/textures/parts/conveyor/rail.lighting/bottom"),
-											class_235.method_615("embraceInfinifactory/textures/parts/conveyor/rail.lighting/top"));
-		ConveyorBelts = new Texture[80];
-		for (int i = 0; i < 80; i++)
-		{
-			string num = (i < 10 ? "0" : "") + i.ToString();
-			ConveyorBelts[i] = class_235.method_615("embraceInfinifactory/textures/parts/conveyor/belt.array/belt_" + num);
-		}
 
 		EvisceratorTextures = new Texture[4];
 		for (int i = 0; i < 4; i++)
@@ -117,38 +104,6 @@ public class MainClass : QuintessentialMod
 			string num = (i < 10 ? "0" : "") + i.ToString();
 			WelderGlyphWeld[i] = class_235.method_615("embraceInfinifactory/textures/parts/welder/glyph_weld.array/welder_weld_" + num);
 		}
-
-		Conveyor = new PartType()
-		{
-			/*ID*/field_1528 = "embrace-infinifactory-conveyor",
-			/*Name*/field_1529 = class_134.method_253("Conveyor", string.Empty),
-			/*Desc*/field_1530 = class_134.method_253("Passively moves an atom, or group of atoms, in the indicated direction", string.Empty),
-			/*Cost*/field_1531 = 2,
-			/*Force-rotatable*/field_1536 = true,//default=false, but true for arms and the berlo, which are 1-hex big but can be rotated individually
-			/*Is a Glyph?*/field_1539 = true,//default=false
-			/*Hex Footprint*/field_1540 = new HexIndex[1] { new HexIndex(0, 0) },//default=emptyList
-			/*Icon*/field_1547 = class_235.method_615("embraceInfinifactory/textures/parts/icons/conveyor"),
-			/*Hover Icon*/field_1548 = class_235.method_615("embraceInfinifactory/textures/parts/icons/conveyor_hover"),
-			/*Glow (Shadow)*/field_1549 = class_238.field_1989.field_97.field_382,//1-hex
-			/*Stroke (Outline)*/field_1550 = class_238.field_1989.field_97.field_383,//1-hex
-			/*Permissions*/field_1551 = Permissions.Track,
-		};
-
-		QApi.AddPartType(Conveyor, (part, pos, editor, renderer) => {
-
-			var vec2 = new Vector2(42f, 49f);
-			renderer.method_526(HexBase, new HexIndex(0,0), new Vector2(-1f, -1f), vec2, 0);
-
-			var vector2_3 = (ConveyorLighting.method_235().ToVector2() / 2).Rounded();
-			renderer.method_527(ConveyorLighting, new HexIndex(0, 0), new Vector2(0.0f, 0.0f), vector2_3, (float) 0.0);
-
-			int index = 0;
-			if (editor.method_503() != enum_128.Stopped)
-			{
-				index = (int)((double)new struct_27(Time.Now().Ticks).method_603() * 60.0) % ConveyorBelts.Length;
-			}
-			renderer.method_521(ConveyorBelts[index], vec2 + new Vector2(-1f, -33f));
-		});
 
 		Eviscerator = new PartType()
 		{
@@ -448,16 +403,12 @@ public class MainClass : QuintessentialMod
 			if (playWeld) playSound(snd_welder, 0.2f, sim_self);
 		});
 
-		QApi.AddPartTypeToPanel(Conveyor, PartTypes.field_1770); //inserts part type after Track in the parts tray
 		QApi.AddPartTypeToPanel(Welder, PartTypes.field_1772); //inserts part type after Bonder in the parts tray
 		QApi.AddPartTypeToPanel(Eviscerator, PartTypes.field_1781); //inserts part type after Disposal in the parts tray
 		QApi.AddPartTypeToPanel(Laser, PartTypes.field_1781); //inserts part type after Disposal in the parts tray
 
-		FakeGripper.LoadPuzzleContent();
 		ConveyorManager.LoadPuzzleContent();
-
-
-		//------------------------- HOOKING -------------------------//
+		FakeGripper.LoadPuzzleContent();
 	}
 
 	public override void Unload()
@@ -467,7 +418,6 @@ public class MainClass : QuintessentialMod
 		FakeGripper.Unload();
 	}
 
-	//------------------------- END HOOKING -------------------------//
 	public override void PostLoad()
 	{
 		//

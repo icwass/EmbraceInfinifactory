@@ -38,16 +38,6 @@ public static class FakeGripper
 
 	//---------------------------------------------------//
 	//public APIs
-
-	/// <summary>
-	/// Creates a new FakeGripper:
-	/// - It will move the molecule on the next 'method_????' call.
-	/// - It is removed on the next 'method_1828' call.
-	/// </summary>
-	/// <param name="position">The starting hex for the FakeGripper.</param>
-	/// <param name="molecule">The molecule that the FakeGripper is holding.</param>
-	/// <param name="translation">How far the molecule should translate. For no rotation, use new HexIndex(0,0).</param>
-	/// <param name="rotation">How much the molecule should rotate about the 'position' hex. For no rotation, use HexRotation.R0.</param>
 	public static void create(HexIndex position, Molecule molecule, HexIndex translation, HexRotation rotation)
 	{
 		var part = new Part(partType, true);
@@ -62,7 +52,7 @@ public static class FakeGripper
 		partSimstate.field_2727 += rotation;
 		partSimstate.field_2741 = rotation;
 
-		ConveyorManager.tempFakeGrippers.Add(part, partSimstate);
+		tempFakeGrippers.Add(part, partSimstate);
 	}
 
 
@@ -84,7 +74,7 @@ public static class FakeGripper
 		var partList = solution.field_3919;
 		var partSimStates = sim_dyn.Get<Dictionary<Part, PartSimState>>("field_3821");
 
-		foreach (var kvp in ConveyorManager.tempFakeGrippers)
+		foreach (var kvp in tempFakeGrippers)
 		{
 			var fakePart = kvp.Key;
 			var fakePartSimstate = kvp.Value;
@@ -94,11 +84,11 @@ public static class FakeGripper
 			if (maybeMol.method_1085())
 			{
 				Molecule molecule = fakePartSimstate.field_2729.method_1087();
+				//molecule.method_1116(origin, rotation); // rotate the molecule
 				molecule.method_1118(fakePartSimstate.field_2735); // translate the molecule
-				//molecule.method_1116(origin, rotation);
 			}
 		}
-		ConveyorManager.tempFakeGrippers.Clear();
+		tempFakeGrippers.Clear();
 		sim_dyn.Set("field_3821", partSimStates);
 	}
 
@@ -169,8 +159,40 @@ public static class FakeGripper
 
 	private static void OnSimMethod1828(orig_Sim_method_1828 orig, Sim sim_self)
 	{
-		ConveyorManager.removeFakeGrippers(sim_self);
+		//remove FakeGrippers, "dropping" them
+		var sim_dyn = new DynamicData(sim_self);
+		var SEB = sim_dyn.Get<SolutionEditorBase>("field_3818");
+		var solution = SEB.method_502();
+		var partList = solution.field_3919;
+		var partSimStates = sim_dyn.Get<Dictionary<Part, PartSimState>>("field_3821");
+		var class401s = sim_dyn.Get<Dictionary<Part, Sim.class_401>>("field_3822");
+		var droppedMolecules = sim_dyn.Get<List<Molecule>>("field_3828");
+
+		var partsToRemove = new List<Part>(partList.Where(x => x.method_1159() == partType));
+		partList.RemoveAll(x => x.method_1159() == partType);
+		foreach (Part fake in partsToRemove)
+		{
+			if (partSimStates.ContainsKey(fake))
+			{
+				var maybeMol = partSimStates[fake].field_2729;
+				if (maybeMol.method_1085())
+				{
+					Molecule mol = partSimStates[fake].field_2729.method_1087();
+					droppedMolecules.Add(mol); // allows conduits to yoink the "dropped" molecule
+				}
+				partSimStates.Remove(fake);
+			}
+			if (class401s.ContainsKey(fake))
+			{
+				class401s.Remove(fake);
+			}
+		}
+		sim_dyn.Set("field_3821", partSimStates);
+		sim_dyn.Set("field_3822", class401s);
+		sim_dyn.Set("field_3828", droppedMolecules);
+		///////////////
 		orig(sim_self);
+		///////////////
 	}
 	private static void OnSimMethod1832(orig_Sim_method_1832 orig, Sim sim_self, bool param_5369)
 	{
@@ -225,7 +247,9 @@ public static class FakeGripper
 	{
 		if (ses_self.method_503() == enum_128.Stopped)
 		{
-			ConveyorManager.removeFakeGrippers(ses_self);
+			var solution = ses_self.method_502();
+			var partList = solution.field_3919;
+			partList.RemoveAll(x => x.method_1159() == FakeGripper.partType);
 		}
 		orig(ses_self, param_5703);
 	}
