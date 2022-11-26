@@ -135,6 +135,7 @@ public static class FakeGripper
 		orig(sim_self, param_5369);
 		return;
 
+		/*
 		//old stuff////////////////////////////////////////////////////////////////////////////////////////////////////////////
 		if (param_5369)
 		{
@@ -173,12 +174,13 @@ public static class FakeGripper
 			partSimStates.Remove(fakeSupraPart);
 			sim_dyn.Set("field_3821", partSimStates);
 		}
+		*/
 	}
 	private static void OnSimMethod1831(orig_Sim_method_1831 orig, Sim sim_self)
 	{
 		orig(sim_self);
 		return;
-		ConveyorManager.loadFakeGrippers(sim_self);
+		//ConveyorManager.loadFakeGrippers(sim_self);
 	}
 
 	//------------------------- END HOOKING -------------------------//
