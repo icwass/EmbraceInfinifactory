@@ -20,7 +20,7 @@ namespace EmbraceInfinifactory
 
 	public class MainClass : QuintessentialMod
 	{
-		public static PartType Conveyor, FakeGripper;
+		public static PartType Conveyor;
 		public static PartType Eviscerator, Laser;
 		public static PartType Welder;
 
@@ -32,12 +32,9 @@ namespace EmbraceInfinifactory
 
 		public static Sound snd_eviscerator, snd_laser, snd_welder;
 
-		private bool debugDisplayPush = false;
-
 		private static IDetour hook_Sim_method_1828;
 		private static IDetour hook_Sim_method_1832;
 		private static IDetour hook_Sim_method_1831;
-		private static IDetour hook_Sim_method_1835;
 
 		public static Texture debug_push, debug_arrow;
 
@@ -66,19 +63,7 @@ namespace EmbraceInfinifactory
 
 		public override void Load()
 		{
-			Settings = new My_Settings();
-		}
-
-		public override Type SettingsType => typeof(My_Settings);
-		public class My_Settings
-		{
-			[SettingsLabel("[Debug] Display when conveyors push molecules.")]
-			public bool debugDisplayConveyorForce = false;
-		}
-		public override void ApplySettings()
-		{
-			base.ApplySettings();
-			debugDisplayPush = ((My_Settings)(Settings)).debugDisplayConveyorForce;
+			//
 		}
 
 		public override void LoadPuzzleContent()
@@ -167,20 +152,6 @@ namespace EmbraceInfinifactory
 					index = (int)((double)new struct_27(Time.Now().Ticks).method_603() * 60.0) % ConveyorBelts.Length;
 				}
 				renderer.method_521(ConveyorBelts[index], vec2 + new Vector2(-1f, -33f));
-			});
-
-			FakeGripper = new PartType()
-			{
-				field_1528 = "fake-claw-pivot",
-				field_1529 = class_134.method_253("Fake Gripper", string.Empty),
-			};
-
-			QApi.AddPartType(FakeGripper, (part, pos, editor, renderer) => {
-				//draw code
-				if (!debugDisplayPush) return;
-
-				Vector2 vector2_24 = new Vector2(41f, 48f);
-				renderer.method_521(debug_push, vector2_24 + new Vector2(-9f, -21f));
 			});
 
 			Eviscerator = new PartType()
@@ -486,6 +457,9 @@ namespace EmbraceInfinifactory
 			QApi.AddPartTypeToPanel(Eviscerator, PartTypes.field_1781); //inserts part type after Disposal in the parts tray
 			QApi.AddPartTypeToPanel(Laser, PartTypes.field_1781); //inserts part type after Disposal in the parts tray
 
+			FakeGripper.LoadPuzzleContent();
+
+
 			//------------------------- HOOKING -------------------------//
 
 			hook_Sim_method_1828 = new Hook(
@@ -500,16 +474,11 @@ namespace EmbraceInfinifactory
 				typeof(Sim).GetMethod("method_1831", BindingFlags.Instance | BindingFlags.NonPublic),
 				typeof(MainClass).GetMethod("OnSimMethod1831", BindingFlags.Static | BindingFlags.NonPublic)
 			);
-			hook_Sim_method_1835 = new Hook(
-				typeof(Sim).GetMethod("method_1835", BindingFlags.Instance | BindingFlags.NonPublic),
-				typeof(MainClass).GetMethod("OnSimMethod1835", BindingFlags.Static | BindingFlags.NonPublic)
-			);
 		}
 
 		private delegate void orig_Sim_method_1828(Sim self);
 		private delegate void orig_Sim_method_1832(Sim self, bool param_5369);
 		private delegate void orig_Sim_method_1831(Sim self);
-		private delegate void orig_Sim_method_1835(Sim self);
 		private static void OnSimMethod1828(orig_Sim_method_1828 orig, Sim sim_self)
 		{
 			ConveyorManager.removeFakeGrippers(sim_self);
@@ -531,7 +500,7 @@ namespace EmbraceInfinifactory
 				var tempFakeGrippers = ConveyorManager.pullFakeGrippers(solution);
 				ConveyorManager.pushFakeGrippers(solution, tempFakeGrippers);
 
-				Part fakeSupraPart = new Part(FakeGripper, true);
+				Part fakeSupraPart = new Part(FakeGripper.partType, true);
 				fakeSupraPart.field_2696 = new Part[tempFakeGrippers.Count];
 				for (int i = 0; i < tempFakeGrippers.Count; i++)
 				{
@@ -554,72 +523,20 @@ namespace EmbraceInfinifactory
 			orig(sim_self);
 			ConveyorManager.loadFakeGrippers(sim_self);
 		}
-		private static void OnSimMethod1835(orig_Sim_method_1835 orig, Sim sim_self)
-		{
-			orig(sim_self);
-		}
 
 		public override void Unload()
 		{
 			hook_Sim_method_1828.Dispose();
 			hook_Sim_method_1832.Dispose();
 			hook_Sim_method_1831.Dispose();
-			hook_Sim_method_1835.Dispose();
+
+
 		}
 
 		//------------------------- END HOOKING -------------------------//
 		public override void PostLoad()
 		{
-			On.SolutionEditorScreen.method_50 += SES_Method_50; // removes fake grippers - otherwise fake grippers are left on the board and prevents glyph placement
-			On.Solution.method_1936 += Solution_Method_1936; // drawing fake grippers is not needed - modified to prevent a gif-recorder bug
-			On.SolutionEditorBase.method_1985 += SolutionEditorBase_Method_1985; // drawing fake grippers is not needed - modified to prevent a gif-recorder bug
-		}
-
-		public Maybe<Part> SolutionEditorBase_Method_1985(On.SolutionEditorBase.orig_method_1985 orig, SolutionEditorBase seb_self, Molecule param_5539)
-		{
-			//reimplements method to prevent a crash
-			var interface2 = seb_self.method_507();
-			var dyn = new DynamicData(interface2);
-			var dict = dyn.Get<Dictionary<Part, PartSimState>>("field_3821");
-			// sometimes FakeGrippers in the gif recorder don't have a PartSimState for some reason (?!?)
-			// to prevent the gif recorder from crashing, we filter them out
-			foreach (Part part in seb_self.method_502().method_1937().Where(x => dict.Keys.Contains(x)))
-			{
-				if (interface2.method_482(part) == (Maybe<Molecule>)param_5539)
-					return (Maybe<Part>)part;
-			}
-			return (Maybe<Part>)struct_18.field_1431;
-		}
-
-		public List<Part> Solution_Method_1936(On.Solution.orig_method_1936 orig, Solution solution_self, interface_2 param_5478)
-		{
-
-			// sometimes FakeGrippers in the gif recorder don't have a PartSimState for some reason (?!?)
-			// to prevent the gif recorder from crashing, we temporarily remove them so no attempt is made to draw them
-			var dyn = new DynamicData(param_5478);
-			var partList = solution_self.field_3919;
-			var dict = dyn.Get<Dictionary<Part, PartSimState>>("field_3821");
-			List<Part> tempFakeGrippers = new();
-			foreach (var part in partList.Where(x => x.method_1159() == FakeGripper && !dict.Keys.Contains(x)))
-			{
-				tempFakeGrippers.Add(part);
-			}
-			partList.RemoveAll(x => tempFakeGrippers.Contains(x));
-			///////////////
-			var ret = orig(solution_self, param_5478);
-			///////////////
-			//then we put them back
-			ConveyorManager.pushFakeGrippers(solution_self, tempFakeGrippers);
-			return ret;
-		}
-
-		public void SES_Method_50(On.SolutionEditorScreen.orig_method_50 orig, SolutionEditorScreen ses_self, float param_5703)
-		{
-			if (ses_self.method_503() == enum_128.Stopped)
-			{
-				ConveyorManager.removeFakeGrippers(ses_self);
-			}
-			orig(ses_self,param_5703);
+			//
 		}
 	}
 }

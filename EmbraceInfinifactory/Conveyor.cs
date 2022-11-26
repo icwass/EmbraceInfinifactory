@@ -13,7 +13,7 @@ namespace EmbraceInfinifactory
 	public static class ConveyorManager
 	{
 		private static Dictionary<Part, PartSimState> tempFakeGrippers = new();
-		private static class_139 fakeGripper => MainClass.FakeGripper;// MainClass.FakeGripper // class_191.field_1769
+		private static class_139 fakeGripper => FakeGripper.partType;// MainClass.FakeGripper // class_191.field_1769
 
 		public static List<Part> pullFakeGrippers(Solution solution, bool invalidsOnly = false)
 		{
@@ -101,6 +101,18 @@ namespace EmbraceInfinifactory
 					fakePartSimstate.field_2735 = translation;
 
 					tempFakeGrippers.Add(fakePart,fakePartSimstate);
+
+					////method for making rotations
+					//
+					//var origin = mol.method_1100().Keys.First();
+					//var hexRotation = new HexRotation(2);
+					//fakePart_dyn.Set("field_2692", origin);
+					//mol.method_1116(origin, hexRotation);
+					//fakePart_dyn.Set("field_2693",fakePart.method_1163() + hexRotation);
+					//var fakePartSimstate = fakePart.method_1178();
+					//fakePartSimstate.field_2729 = (Maybe<Molecule>)mol;
+					//fakePartSimstate.field_2727 += hexRotation;
+					//fakePartSimstate.field_2741 = hexRotation;
 				}
 			}
 		}
