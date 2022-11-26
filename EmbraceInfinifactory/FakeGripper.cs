@@ -40,14 +40,29 @@ public static class FakeGripper
 	//public APIs
 
 	/// <summary>
-	/// Creates a new FakeGripper with the specified behavior.
-	/// The FakeGripper will perform until the next method_1828 call.
+	/// Creates a new FakeGripper:
+	/// - It will move the molecule on the next 'method_????' call.
+	/// - It is removed on the next 'method_1828' call.
 	/// </summary>
-	/// <param name="type">The part type to be added.</param>
-	/// <param name="mechanism">Whether to add to the mechanisms section or the glyphs section.</param>
-	public static void create()
+	/// <param name="position">The starting hex for the FakeGripper.</param>
+	/// <param name="molecule">The molecule that the FakeGripper is holding.</param>
+	/// <param name="translation">How far the molecule should translate. For no rotation, use new HexIndex(0,0).</param>
+	/// <param name="rotation">How much the molecule should rotate about the 'position' hex. For no rotation, use HexRotation.R0.</param>
+	public static void create(HexIndex position, Molecule molecule, HexIndex translation, HexRotation rotation)
 	{
-		//
+		var part = new Part(partType, true);
+		var part_dyn = new DynamicData(part);
+		part_dyn.Set("field_2692", position + translation);
+		part_dyn.Set("field_2693", part.method_1163() + rotation);
+
+		var partSimstate = part.method_1178();
+		partSimstate.field_2729 = (Maybe<Molecule>) molecule;
+		partSimstate.field_2735 = translation;
+		partSimstate.field_2742 = translation != new HexIndex(0,0);
+		partSimstate.field_2727 += rotation;
+		partSimstate.field_2741 = rotation;
+
+		ConveyorManager.tempFakeGrippers.Add(part, partSimstate);
 	}
 
 
@@ -56,9 +71,36 @@ public static class FakeGripper
 
 
 
+
+
 	//---------------------------------------------------//
 	//internal main methods
 
+	private static void loadFakeGrippers(Sim sim_self)
+	{
+		var sim_dyn = new DynamicData(sim_self);
+		var SEB = sim_dyn.Get<SolutionEditorBase>("field_3818");
+		var solution = SEB.method_502();
+		var partList = solution.field_3919;
+		var partSimStates = sim_dyn.Get<Dictionary<Part, PartSimState>>("field_3821");
+
+		foreach (var kvp in ConveyorManager.tempFakeGrippers)
+		{
+			var fakePart = kvp.Key;
+			var fakePartSimstate = kvp.Value;
+			partList.Add(fakePart);
+			partSimStates.Add(fakePart, fakePartSimstate);
+			var maybeMol = fakePartSimstate.field_2729;
+			if (maybeMol.method_1085())
+			{
+				Molecule molecule = fakePartSimstate.field_2729.method_1087();
+				molecule.method_1118(fakePartSimstate.field_2735); // translate the molecule
+				//molecule.method_1116(origin, rotation);
+			}
+		}
+		ConveyorManager.tempFakeGrippers.Clear();
+		sim_dyn.Set("field_3821", partSimStates);
+	}
 
 
 
@@ -100,25 +142,25 @@ public static class FakeGripper
 		On.SolutionEditorScreen.method_50 += SES_Method_50; // removes fake grippers - otherwise fake grippers are left on the board and prevents glyph placement
 		On.Solution.method_1936 += Solution_Method_1936; // drawing fake grippers is not needed - modified to prevent a gif-recorder bug
 		On.SolutionEditorBase.method_1985 += SolutionEditorBase_Method_1985; // drawing fake grippers is not needed - modified to prevent a gif-recorder bug
-		//hook_Sim_method_1828 = new Hook(
-		//	typeof(Sim).GetMethod("method_1828", BindingFlags.Instance | BindingFlags.NonPublic),
-		//	typeof(FakeGripper).GetMethod("OnSimMethod1828", BindingFlags.Static | BindingFlags.NonPublic)
-		//);
-		//hook_Sim_method_1832 = new Hook(
-		//	typeof(Sim).GetMethod("method_1832", BindingFlags.Instance | BindingFlags.NonPublic),
-		//	typeof(FakeGripper).GetMethod("OnSimMethod1832", BindingFlags.Static | BindingFlags.NonPublic)
-		//);
-		//hook_Sim_method_1831 = new Hook(
-		//	typeof(Sim).GetMethod("method_1831", BindingFlags.Instance | BindingFlags.NonPublic),
-		//	typeof(FakeGripper).GetMethod("OnSimMethod1831", BindingFlags.Static | BindingFlags.NonPublic)
-		//);
+		hook_Sim_method_1828 = new Hook(
+			typeof(Sim).GetMethod("method_1828", BindingFlags.Instance | BindingFlags.NonPublic),
+			typeof(FakeGripper).GetMethod("OnSimMethod1828", BindingFlags.Static | BindingFlags.NonPublic)
+		);
+		hook_Sim_method_1832 = new Hook(
+			typeof(Sim).GetMethod("method_1832", BindingFlags.Instance | BindingFlags.NonPublic),
+			typeof(FakeGripper).GetMethod("OnSimMethod1832", BindingFlags.Static | BindingFlags.NonPublic)
+		);
+		hook_Sim_method_1831 = new Hook(
+			typeof(Sim).GetMethod("method_1831", BindingFlags.Instance | BindingFlags.NonPublic),
+			typeof(FakeGripper).GetMethod("OnSimMethod1831", BindingFlags.Static | BindingFlags.NonPublic)
+		);
 	}
 
 	public static void Unload()
 	{
-		//hook_Sim_method_1828.Dispose();
-		//hook_Sim_method_1832.Dispose();
-		//hook_Sim_method_1831.Dispose();
+		hook_Sim_method_1828.Dispose();
+		hook_Sim_method_1832.Dispose();
+		hook_Sim_method_1831.Dispose();
 	}
 
 	private delegate void orig_Sim_method_1828(Sim self);
@@ -132,11 +174,6 @@ public static class FakeGripper
 	}
 	private static void OnSimMethod1832(orig_Sim_method_1832 orig, Sim sim_self, bool param_5369)
 	{
-		orig(sim_self, param_5369);
-		return;
-
-		/*
-		//old stuff////////////////////////////////////////////////////////////////////////////////////////////////////////////
 		if (param_5369)
 		{
 			///////////////
@@ -149,17 +186,18 @@ public static class FakeGripper
 			var sim_dyn = new DynamicData(sim_self);
 			var SEB = sim_dyn.Get<SolutionEditorBase>("field_3818");
 			var solution = SEB.method_502();
-			var tempFakeGrippers = ConveyorManager.pullFakeGrippers(solution);
-			foreach (var part in tempFakeGrippers)
-			{
-				solution.field_3919.Add(part);
-			}
+			var partList = solution.field_3919;
 
-			Part fakeSupraPart = new Part(FakeGripper.partType, true);
-			fakeSupraPart.field_2696 = new Part[tempFakeGrippers.Count];
-			for (int i = 0; i < tempFakeGrippers.Count; i++)
+			List<Part> fakeGrippers = new();
+			foreach (var part in partList.Where(x => x.method_1159() == FakeGripper.partType))
 			{
-				fakeSupraPart.field_2696[i] = tempFakeGrippers[i];
+				fakeGrippers.Add(part);
+			}
+			Part fakeSupraPart = new Part(FakeGripper.partType, true);
+			fakeSupraPart.field_2696 = new Part[fakeGrippers.Count];
+			for (int i = 0; i < fakeGrippers.Count; i++)
+			{
+				fakeSupraPart.field_2696[i] = fakeGrippers[i];
 			}
 			solution.field_3919.Add(fakeSupraPart);
 			var partSimStates = sim_dyn.Get<Dictionary<Part, PartSimState>>("field_3821");
@@ -168,19 +206,17 @@ public static class FakeGripper
 			///////////////
 			orig(sim_self, false);
 			///////////////
-
-			solution.field_3919.Remove(fakeSupraPart);
 			partSimStates = sim_dyn.Get<Dictionary<Part, PartSimState>>("field_3821");
 			partSimStates.Remove(fakeSupraPart);
+			solution.field_3919.Remove(fakeSupraPart);
 			sim_dyn.Set("field_3821", partSimStates);
 		}
-		*/
 	}
+
 	private static void OnSimMethod1831(orig_Sim_method_1831 orig, Sim sim_self)
 	{
 		orig(sim_self);
-		return;
-		//ConveyorManager.loadFakeGrippers(sim_self);
+		loadFakeGrippers(sim_self);
 	}
 
 	//------------------------- END HOOKING -------------------------//

@@ -10,149 +10,22 @@ using System.Reflection;
 
 namespace EmbraceInfinifactory;
 
+using PartType = class_139;
+
 public static class ConveyorManager
 {
 	private static IDetour hook_Sim_method_1828;
 	private static IDetour hook_Sim_method_1832;
 	private static IDetour hook_Sim_method_1831;
 
-
-
-	private static Dictionary<Part, PartSimState> tempFakeGrippers = new();
-	private static class_139 fakeGripper => FakeGripper.partType;// MainClass.FakeGripper // class_191.field_1769
-
-	public static List<Part> pullFakeGrippers(Solution solution, bool invalidsOnly = false)
-	{
-		var partList = solution.field_3919;
-		List<Part> tempFakeGrippers = new();
-		foreach (var part in partList.Where(x => x.method_1159() == fakeGripper))
-		{
-			tempFakeGrippers.Add(part);
-		}
-		partList.RemoveAll(x => tempFakeGrippers.Contains(x));
-		return tempFakeGrippers;
-	}
-	public static void pushFakeGrippers(Solution solution, List<Part> tempFakeGrippers)
-	{
-		foreach (var part in tempFakeGrippers)
-		{
-			solution.field_3919.Add(part);
-		}
-	}
-	public static void computeFakeGrippers(Sim sim_self)
-	{
-		//
-		var sim_dyn = new DynamicData(sim_self);
-		var SEB = sim_dyn.Get<SolutionEditorBase>("field_3818");
-		var solution = SEB.method_502();
-		var partList = solution.field_3919;
-		var partSimStates = sim_dyn.Get<Dictionary<Part, PartSimState>>("field_3821");
-
-		//prep work
-		List<Part> gripperList = new List<Part>();
-		foreach (Part part in partList)
-		{
-			foreach (Part key in part.field_2696)//for each gripper
-			{
-				if (partSimStates[key].field_2729.method_1085())//if part is holding onto a molecule
-				{
-					gripperList.Add(key);
-				}
-			}
-		}
-
-		//compute net forces
-		var forceDictionary = new Dictionary<Molecule, ConveyorForce>();
-		foreach (var part in partList.Where(x => x.method_1159() == MainClass.Conveyor))//for each conveyor
-		{
-			Type simType = typeof(Sim);
-			MethodInfo Method_1833 = simType.GetMethod("method_1833", BindingFlags.NonPublic | BindingFlags.Instance);
-			MethodInfo Method_1850 = simType.GetMethod("method_1850", BindingFlags.NonPublic | BindingFlags.Instance);//atom exists at location
-
-			HexIndex hex = new HexIndex(0, 0);
-			Maybe<AtomReference> maybeAtom = (Maybe<AtomReference>)Method_1850.Invoke(sim_self, new object[] { part, hex, gripperList, false });
-			AtomReference atomReference;
-
-			if (maybeAtom.method_99<AtomReference>(out atomReference) && !(bool)Method_1833.Invoke(sim_self, new object[] { atomReference.field_2277, gripperList }))
-			{
-				Molecule mol = atomReference.field_2277;
-				ConveyorForce force = new ConveyorForce(part);
-				//atom is part of a molecule that isn't held - apply passive pushing force
-				if (!forceDictionary.ContainsKey(mol))
-				{
-					forceDictionary.Add(mol, force);
-				}
-				else
-				{
-					forceDictionary[mol] += force;
-				}
-			}
-		}
-
-		//create fake grippers for molecules that have a valid net force
-		foreach (var kvp in forceDictionary)
-		{
-			HexIndex translation;
-			if (kvp.Value.isValidPush(out translation))
-			{
-				//create a fake Part and PartSimState for pushing it
-				Molecule mol = kvp.Key;
-				Part fakePart = new Part(fakeGripper, true);
-				var fakePart_dyn = new DynamicData(fakePart);
-				fakePart_dyn.Set("field_2692", mol.method_1100().Keys.First() + translation);
-
-				var fakePartSimstate = fakePart.method_1178();
-				fakePartSimstate.field_2729 = (Maybe<Molecule>)mol;
-				fakePartSimstate.field_2742 = true;
-				fakePartSimstate.field_2735 = translation;
-
-				tempFakeGrippers.Add(fakePart,fakePartSimstate);
-
-				////method for making rotations
-				//
-				//var origin = mol.method_1100().Keys.First();
-				//var hexRotation = new HexRotation(2);
-				//fakePart_dyn.Set("field_2692", origin);
-				//mol.method_1116(origin, hexRotation);
-				//fakePart_dyn.Set("field_2693",fakePart.method_1163() + hexRotation);
-				//var fakePartSimstate = fakePart.method_1178();
-				//fakePartSimstate.field_2729 = (Maybe<Molecule>)mol;
-				//fakePartSimstate.field_2727 += hexRotation;
-				//fakePartSimstate.field_2741 = hexRotation;
-			}
-		}
-	}
-
-	public static void loadFakeGrippers(Sim sim_self)
-	{
-		var sim_dyn = new DynamicData(sim_self);
-		var SEB = sim_dyn.Get<SolutionEditorBase>("field_3818");
-		var solution = SEB.method_502();
-		var partList = solution.field_3919;
-		var partSimStates = sim_dyn.Get<Dictionary<Part, PartSimState>>("field_3821");
-		foreach (var kvp in tempFakeGrippers)
-		{
-			var fakePart = kvp.Key;
-			var fakePartSimstate = kvp.Value;
-			partList.Add(fakePart);
-			partSimStates.Add(fakePart, fakePartSimstate);
-			var maybeMol = fakePartSimstate.field_2729;
-			if (maybeMol.method_1085())
-			{
-				Molecule mol = fakePartSimstate.field_2729.method_1087();
-				mol.method_1118(fakePartSimstate.field_2735);
-			}
-		}
-		tempFakeGrippers.Clear();
-		sim_dyn.Set("field_3821", partSimStates);
-	}
-	
+	public static Dictionary<Part, PartSimState> tempFakeGrippers = new(); // move to FakeGripper.cs eventually
+		
 	public static void removeFakeGrippers(SolutionEditorBase seb_self)
 	{
 		var solution = seb_self.method_502();
 		var partList = solution.field_3919;
 		var partsToRemove = new List<Part>();
-		foreach (Part part in partList.Where(x => x.method_1159() == fakeGripper))
+		foreach (Part part in partList.Where(x => x.method_1159() == FakeGripper.partType))
 		{
 			partsToRemove.Add(part);
 		}
@@ -171,7 +44,7 @@ public static class ConveyorManager
 		var partSimStates = sim_dyn.Get<Dictionary<Part, PartSimState>>("field_3821");
 		var class401s = sim_dyn.Get<Dictionary<Part, Sim.class_401>>("field_3822");
 		var droppedMolecules = sim_dyn.Get<List<Molecule>>("field_3828");
-		foreach (Part fake in partList.Where(x => x.method_1159() == fakeGripper))
+		foreach (Part fake in partList.Where(x => x.method_1159() == FakeGripper.partType))
 		{
 			if (partSimStates.ContainsKey(fake))
 			{
@@ -234,42 +107,74 @@ public static class ConveyorManager
 	}
 	private static void OnSimMethod1832(orig_Sim_method_1832 orig, Sim sim_self, bool param_5369)
 	{
-		if (param_5369)
+		orig(sim_self, param_5369);
+		if (param_5369) // then compute the pushing forces of conveyors and create fake grippers
 		{
-			orig(sim_self, true);
-			ConveyorManager.computeFakeGrippers(sim_self);
-		}
-		else
-		{
-			//this work-around makes sure that atoms are pulled into outputs at the right time so outputs are drawn correctly
 			var sim_dyn = new DynamicData(sim_self);
 			var SEB = sim_dyn.Get<SolutionEditorBase>("field_3818");
 			var solution = SEB.method_502();
-			var tempFakeGrippers = ConveyorManager.pullFakeGrippers(solution);
-			ConveyorManager.pushFakeGrippers(solution, tempFakeGrippers);
-
-			Part fakeSupraPart = new Part(FakeGripper.partType, true);
-			fakeSupraPart.field_2696 = new Part[tempFakeGrippers.Count];
-			for (int i = 0; i < tempFakeGrippers.Count; i++)
-			{
-				fakeSupraPart.field_2696[i] = tempFakeGrippers[i];
-			}
-			solution.field_3919.Add(fakeSupraPart);
+			var partList = solution.field_3919;
 			var partSimStates = sim_dyn.Get<Dictionary<Part, PartSimState>>("field_3821");
-			partSimStates.Add(fakeSupraPart, fakeSupraPart.method_1178());
-			sim_dyn.Set("field_3821", partSimStates);
-			orig(sim_self, false);
 
-			solution.field_3919.Remove(fakeSupraPart);
-			partSimStates = sim_dyn.Get<Dictionary<Part, PartSimState>>("field_3821");
-			partSimStates.Remove(fakeSupraPart);
-			sim_dyn.Set("field_3821", partSimStates);
+			//prep work
+			List<Part> gripperList = new List<Part>();
+			foreach (Part part in partList)
+			{
+				foreach (Part key in part.field_2696)//for each gripper
+				{
+					if (partSimStates[key].field_2729.method_1085())//if part is holding onto a molecule
+					{
+						gripperList.Add(key);
+					}
+				}
+			}
+
+			//compute net forces
+			var forceDictionary = new Dictionary<Molecule, ConveyorForce>();
+			foreach (var part in partList.Where(x => x.method_1159() == MainClass.Conveyor))//for each conveyor
+			{
+				Type simType = typeof(Sim);
+				MethodInfo Method_1833 = simType.GetMethod("method_1833", BindingFlags.NonPublic | BindingFlags.Instance);
+				MethodInfo Method_1850 = simType.GetMethod("method_1850", BindingFlags.NonPublic | BindingFlags.Instance);//atom exists at location
+
+				HexIndex hex = new HexIndex(0, 0);
+				Maybe<AtomReference> maybeAtom = (Maybe<AtomReference>)Method_1850.Invoke(sim_self, new object[] { part, hex, gripperList, false });
+				AtomReference atomReference;
+
+				if (maybeAtom.method_99<AtomReference>(out atomReference) && !(bool)Method_1833.Invoke(sim_self, new object[] { atomReference.field_2277, gripperList }))
+				{
+					Molecule mol = atomReference.field_2277;
+					ConveyorForce force = new ConveyorForce(part);
+					//atom is part of a molecule that isn't held - apply passive pushing force
+					if (!forceDictionary.ContainsKey(mol))
+					{
+						forceDictionary.Add(mol, force);
+					}
+					else
+					{
+						forceDictionary[mol] += force;
+					}
+				}
+			}
+
+			//push molecules with a valid net force
+			foreach (var kvp in forceDictionary)
+			{
+				HexIndex translation;
+				if (kvp.Value.isValidPush(out translation))
+				{
+					//create a FakeGripper for pushing it
+					Molecule molecule = kvp.Key;
+					HexIndex origin = molecule.method_1100().Keys.First();
+
+					FakeGripper.create(origin, molecule, translation, HexRotation.R0);
+				}
+			}
 		}
 	}
 	private static void OnSimMethod1831(orig_Sim_method_1831 orig, Sim sim_self)
 	{
 		orig(sim_self);
-		ConveyorManager.loadFakeGrippers(sim_self);
 	}
 }
 
