@@ -54,9 +54,30 @@ public class MainClass : QuintessentialMod
 		class_158.method_376(SOUND.field_4061, class_269.field_2109 * VOLUME * FACTOR, false);
 	}
 
+	public override Type SettingsType => typeof(MySettings);
+	public class MySettings
+	{
+		[SettingsLabel("Use Infinifactory-style gif frames.")]
+		public bool replaceGifFrames = false;
+	}
+	public override void ApplySettings()
+	{
+		base.ApplySettings();
+		var SET = (MySettings)Settings;
+		if (SET.replaceGifFrames)
+		{
+			class_238.field_1989.field_99.field_698 = class_235.method_615("embraceInfinifactory/textures/solution_editor/gif_frame");
+			class_238.field_1989.field_99.field_699 = class_235.method_615("embraceInfinifactory/textures/solution_editor/gif_frame_pipeline");
+		}
+		else
+		{
+			class_238.field_1989.field_99.field_698 = class_235.method_615("textures/solution_editor/gif_frame");
+			class_238.field_1989.field_99.field_699 = class_235.method_615("textures/solution_editor/gif_frame_pipeline");
+		}
+	}
 	public override void Load()
 	{
-		//
+		Settings = new MySettings();
 	}
 
 	public override void LoadPuzzleContent()
