@@ -29,7 +29,7 @@ public class MainClass : QuintessentialMod
 
 	public static Sound snd_eviscerator, snd_laser, snd_welder;
 
-	public static Texture debug_push, debug_arrow;
+	public static Texture debug_arrow;
 
 	public static void playSound(Sound SOUND, float VOLUME, Sim sim = null, SolutionEditorBase seb = null)
 	{
@@ -82,7 +82,6 @@ public class MainClass : QuintessentialMod
 
 	public override void LoadPuzzleContent()
 	{
-		debug_push = class_235.method_615("embraceInfinifactory/textures/parts/conveyor/debug_push");
 		debug_arrow = class_235.method_615("embraceInfinifactory/textures/parts/conveyor/debug_arrow");
 
 		snd_eviscerator = class_238.field_1991.field_1842;//class_235.method_616("sounds/glyph_evisceration");
@@ -434,7 +433,6 @@ public class MainClass : QuintessentialMod
 
 	public override void Unload()
 	{
-
 		ConveyorManager.Unload();
 		FakeGripper.Unload();
 	}
